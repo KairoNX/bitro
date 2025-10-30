@@ -1,0 +1,17 @@
+# This is a config for E2B sandbox template.
+# You can use template ID (05rifpm7pwvcf4pmqgxi) or template name (bitro-lls) to create a sandbox:
+
+# Python SDK
+# from e2b import Sandbox, AsyncSandbox
+# sandbox = Sandbox.create("bitro-lls") # Sync sandbox
+# sandbox = await AsyncSandbox.create("bitro-lls") # Async sandbox
+
+# JS SDK
+# import { Sandbox } from 'e2b'
+# const sandbox = await Sandbox.create('bitro-lls')
+
+team_id = "eb6bdbca-2378-474a-ab8f-6d9ae69619ce"
+start_cmd = "/compile_page.sh"
+dockerfile = "e2b.Dockerfile"
+template_name = "bitro-lls"
+template_id = "05rifpm7pwvcf4pmqgxi"
