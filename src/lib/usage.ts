@@ -3,8 +3,8 @@ import { RateLimiterPrisma } from "rate-limiter-flexible";
 
 import { prisma } from "@/lib/db";
 
-const FREE_POINTS = 2;
-const PRO_POINTS = 100;
+const FREE_POINTS = 20;
+const PRO_POINTS = 200;
 const DURATION = 30 * 24 * 60 * 60; // 30 days
 const GENERATION_COST = 1;
 
