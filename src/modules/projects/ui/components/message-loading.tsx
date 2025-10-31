@@ -4,12 +4,14 @@ import { useState, useEffect } from "react";
 const ShimmerMessages = () => {
   const messages = [
     "Thinking...",
-    "Loading...",
-    "Generating...",
     "Analyzing your request...",
-    "Building your website...",
-    "Crafting components...",
-    "Optimizing layout...",
+    "Setting up backend...",
+    "Creating database tables...",
+    "Building components...",
+    "Connecting API routes...",
+    "Adding database schemas...",
+    "Implementing features...",
+    "Optimizing performance...",
     "Adding final touches...",
     "Almost ready...",
   ];
@@ -42,12 +44,18 @@ export const MessageLoading = () => {
           alt="Vibe"
           width={18}
           height={18}
-          className="shrink-0"
+          className="shrink-0 animate-pulse"
         />
         <span className="text-sm font-medium">Vibe</span>
       </div>
       <div className="pl-8.5 flex flex-col gap-y-4">
         <ShimmerMessages />
+        {/* Code generation animation */}
+        <div className="space-y-1 mt-2 opacity-60">
+          <div className="h-2 bg-primary/20 rounded animate-pulse" style={{ width: '90%' }} />
+          <div className="h-2 bg-primary/20 rounded animate-pulse" style={{ width: '75%' }} />
+          <div className="h-2 bg-primary/20 rounded animate-pulse" style={{ width: '85%' }} />
+        </div>
       </div>
     </div>
   );

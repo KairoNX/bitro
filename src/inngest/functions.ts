@@ -4,6 +4,12 @@ import { openai, createAgent, createTool, createNetwork, type Tool, type Message
 
 import { prisma } from "@/lib/db";
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "@/prompt";
+import { 
+  createProjectSchema, 
+  generateSchemaName, 
+  listTables,
+  executeSQL
+} from "@/lib/database-manager";
 
 import { inngest } from "./client";
 import { SANDBOX_TIMEOUT } from "./types";
@@ -18,6 +24,16 @@ export const codeAgentFunction = inngest.createFunction(
   { id: "code-agent" },
   { event: "code-agent/run" },
   async ({ event, step }) => {
+    // Create database schema for this project FIRST
+    const schemaName = await step.run("create-database-schema", async () => {
+      try {
+        return await createProjectSchema(event.data.projectId);
+      } catch (error) {
+        console.error("Failed to create schema:", error);
+        return generateSchemaName(event.data.projectId);
+      }
+    });
+
     const sandboxId = await step.run("get-sandbox-id", async () => {
       const sandbox = await Sandbox.create("vibe-nextjs-test-2");
       await sandbox.setTimeout(SANDBOX_TIMEOUT);
@@ -155,6 +171,73 @@ export const codeAgentFunction = inngest.createFunction(
               }
             })
           },
+        }),
+        createTool({
+          name: "setupDatabase",
+          description: "Create database tables for the app. Returns schema info for connecting to the database.",
+          parameters: z.object({
+            tables: z.array(z.object({
+              name: z.string(),
+              columns: z.array(z.object({
+                name: z.string(),
+                type: z.string(),
+                nullable: z.boolean().optional(),
+                primaryKey: z.boolean().optional(),
+              })),
+            })),
+          }),
+          handler: async ({ tables }, { step }) => {
+            return await step?.run("setupDatabase", async () => {
+              try {
+                const sqlStatements: string[] = [];
+                
+                for (const table of tables) {
+                  const columns = table.columns.map(col => {
+                    let def = `${col.name} ${col.type}`;
+                    if (col.primaryKey) def += ' PRIMARY KEY';
+                    if (!col.nullable) def += ' NOT NULL';
+                    return def;
+                  }).join(', ');
+                  
+                  sqlStatements.push(`CREATE TABLE IF NOT EXISTS ${table.name} (${columns});`);
+                }
+
+                const fullSQL = sqlStatements.join('\n');
+                
+                // Execute SQL in the project's schema
+                await executeSQL(schemaName, fullSQL);
+                
+                return {
+                  success: true,
+                  schema: schemaName,
+                  tables: tables.map(t => t.name),
+                  message: `Database schema ${schemaName} ready with ${tables.length} table(s). Use PostgreSQL with this schema.`
+                };
+              } catch (e) {
+                console.error('Database setup error:', e);
+                return `Error setting up database: ${e}`;
+              }
+            });
+          },
+        }),
+        createTool({
+          name: "getDatabaseInfo",
+          description: "Get information about the project's database tables and structure.",
+          parameters: z.object({}),
+          handler: async ({}, { step }) => {
+            return await step?.run("getDatabaseInfo", async () => {
+              try {
+                const tables = await listTables(schemaName);
+                return {
+                  schema: schemaName,
+                  tables,
+                  connection: "Use PostgreSQL with schema search path set to your schema name"
+                };
+              } catch (e) {
+                return `Error getting database info: ${e}`;
+              }
+            });
+          },
         })
       ],
       lifecycle: {
@@ -238,6 +321,14 @@ export const codeAgentFunction = inngest.createFunction(
         });
       }
 
+      const subdomain = await step.run("generate-subdomain", async () => {
+        const project = await prisma.project.findUnique({
+          where: { id: event.data.projectId },
+        });
+        const safeName = project?.name.replace(/[^a-z0-9]/g, '-').toLowerCase() || 'app';
+        return `${safeName}-${event.data.projectId.substring(0, 8)}`;
+      });
+
       return await prisma.message.create({
         data: {
           projectId: event.data.projectId,
@@ -247,8 +338,10 @@ export const codeAgentFunction = inngest.createFunction(
           fragment: {
             create: {
               sandboxUrl: sandboxUrl,
+              productionUrl: `https://${subdomain}.bitro.app`,
               title: parseAgentOutput(fragmentTitleOuput),
               files: result.state.data.files,
+              databaseSchema: schemaName,
             },
           },
         },
